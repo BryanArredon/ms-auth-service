@@ -1,225 +1,77 @@
-# Auth Service - Microservicio de Seguridad
+# 🛡️ Auth Service - Microservicio de Seguridad
 
-Microservicio de autenticación y autorización construido con Spring Boot.
-Este servicio se encarga de gestionar usuarios, autenticación y generación de tokens JWT para que otros microservicios puedan validar accesos.
+Microservicio de autenticación y autorización construido con Spring Boot. Este servicio se encarga de gestionar aplicaciones, usuarios y roles del ecosistema de la Bitácora de Enfermería, generando tokens JWT para que otros microservicios puedan validar accesos de forma segura.
 
-## Tecnologías utilizadas
+## 🚀 Tecnologías utilizadas
 
-* Java 17
-* Spring Boot
-* Spring Security
-* Spring Data JPA
-* PostgreSQL
-* JWT
-* Lombok
-* OpenAPI / Swagger
+* **Java 17**
+* **Spring Boot 3.x**
+* **Spring Security & JWT** (Manejo de identidad)
+* **Spring Data JPA** (Persistencia)
+* **PostgreSQL** (Supabase)
+* **Lombok** (Reducción de boilerplate)
+* **OpenAPI / Swagger** (Documentación de API)
 
 ---
 
-# Estructura del proyecto
+## ⚙️ Variables de Entorno (.env)
 
-```
-auth-service
-│
-├── src/main/java/com/security/auth_service
-│
-│   ├── config
-│   ├── controller
-│   ├── service
-│   ├── repository
-│   ├── entity
-│   ├── dto
-│   ├── security
-│   ├── exception
-│   └── AuthServiceApplication.java
-│
-├── src/main/resources
-│   └── application.properties
-│
-└── pom.xml
+El proyecto requiere un archivo `.env` en la raíz (junto al `pom.xml`) para funcionar correctamente y no exponer credenciales. Crea tu `.env` guiándote del `.env.example`:
+
+```env
+DB_URL=jdbc:postgresql://<TU_HOST_SUPABASE>:5432/postgres
+DB_USERNAME=postgres
+DB_PASSWORD=<TU_PASSWORD>
 ```
 
 ---
 
-# Descripción de cada carpeta
+## 💻 Instalación y Ejecución Local
 
-## config
+1. Clona el repositorio y ubícate en la carpeta `auth-service`.
+2. Asegúrate de tener **Java 17** instalado.
+3. Configura tu archivo `.env` (ver sección anterior).
+4. Compila y ejecuta la aplicación usando Maven Wrapper:
 
-Contiene las configuraciones globales del sistema.
+```bash
+# Otorgar permisos de ejecución al wrapper (solo Mac/Linux)
+chmod +x mvnw
 
-Se utiliza para:
+# Limpiar y compilar
+./mvnw clean compile
 
-* Configuración de seguridad
-* Configuración de Swagger/OpenAPI
-* Configuración de CORS
-* Beans globales
-
-Ejemplo de clases:
-
+# Ejecutar el servidor de Spring Boot
+./mvnw spring-boot:run
 ```
-SecurityConfig.java
-OpenApiConfig.java
-```
+
+El servicio por defecto corre en el puerto **8080** (o el especificado en `application.properties`).
 
 ---
 
-## controller
+## 📚 Documentación de la API (Swagger)
 
-Contiene los controladores REST del sistema.
+Una vez que el proyecto esté corriendo, puedes explorar visualmente la API e interactuar con ella visitando:
+* [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
+* [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 
-Se encargan de recibir las peticiones HTTP y devolver respuestas al cliente.
+### Endpoints Principales
 
-Ejemplos de endpoints:
-
-```
-POST /auth/login
-POST /auth/register
-POST /auth/refresh-token
-GET  /auth/validate
-```
-
-Ejemplo de clase:
-
-```
-AuthController.java
-```
+* `POST /api/auth/register` - Registra un nuevo usuario en la Base de Datos con contraseña hasheada.
+* `POST /api/auth/login` - Verifica credenciales y devuelve una respuesta de éxito (preparado para JWT).
 
 ---
 
-## service
+## 📂 Estructura del Proyecto
 
-Contiene la lógica de negocio del microservicio.
-
-Aquí se implementan las reglas del sistema como:
-
-* autenticación de usuarios
-* generación de tokens
-* registro de usuarios
-* validación de credenciales
-
-Ejemplo de clases:
-
+```text
+auth-service/
+├── src/main/java/com/security/auth_service/
+│   ├── config/       # Configuraciones de Seguridad, JWT y Swagger
+│   ├── controller/   # Endpoints REST (ej. AuthController)
+│   ├── dto/          # Data Transfer Objects (LoginRequest, AuthResponse)
+│   ├── entity/       # Modelos JPA (Usuario, Rol, Aplicacion)
+│   ├── repository/   # Interfaces de Spring Data
+│   └── service/      # Lógica de negocio (AuthService, etc.)
+└── src/main/resources/
+    └── application.properties # Mapeo de DB al archivo .env
 ```
-AuthService.java
-UserService.java
-```
-
----
-
-## repository
-
-Capa encargada de interactuar con la base de datos.
-
-Utiliza Spring Data JPA para realizar operaciones CRUD.
-
-Ejemplo de repositorios:
-
-```
-UserRepository.java
-RoleRepository.java
-```
-
----
-
-## entity
-
-Contiene las entidades que representan las tablas de la base de datos.
-
-Ejemplo:
-
-```
-User.java
-Role.java
-```
-
-Ejemplo de relación:
-
-```
-User -> ManyToMany -> Role
-```
-
----
-
-## dto
-
-Los DTO (Data Transfer Objects) se utilizan para transportar datos entre el cliente y el servidor.
-
-Sirven para evitar exponer directamente las entidades de la base de datos.
-
-Ejemplo de DTOs:
-
-```
-LoginRequest.java
-RegisterRequest.java
-AuthResponse.java
-```
-
----
-
-## security
-
-Contiene toda la lógica relacionada con la seguridad del sistema.
-
-Se utiliza para:
-
-* generación de tokens JWT
-* validación de tokens
-* filtros de autenticación
-* manejo de autenticación en Spring Security
-
-Ejemplo de clases:
-
-```
-JwtService.java
-JwtAuthenticationFilter.java
-JwtUtils.java
-```
-
----
-
-## exception
-
-Manejo centralizado de errores del sistema.
-
-Permite controlar y formatear las respuestas cuando ocurre una excepción.
-
-Ejemplo de clases:
-
-```
-GlobalExceptionHandler.java
-CustomException.java
-```
-
----
-
-# Flujo de autenticación
-
-```
-Cliente
-   │
-   ▼
-Auth Service (Login)
-   │
-   ▼
-Generación de JWT
-   │
-   ▼
-Cliente usa el token en otros microservicios
-```
-
----
-
-# Ejemplo de endpoints
-
-```
-POST /auth/login
-POST /auth/register
-POST /auth/refresh-token
-GET  /auth/validate
-```
-
----
-
-# Objetivo del microservicio
-
-Este microservicio permite centralizar la autenticación del sistema para que otros microservicios puedan utilizar el mismo mecanismo de seguridad basado en JWT.
