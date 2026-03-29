@@ -36,7 +36,33 @@ CREATE TABLE seguridad_ms.usuario_roles (
 );
 
 
+-- 5. Auditoria: Registro detallado de acciones sensibles
+CREATE TABLE seguridad_ms.auditoria (
+    id SERIAL PRIMARY KEY,
+    usuario_id UUID REFERENCES seguridad_ms.usuarios(id),
+    aplicacion_id UUID REFERENCES seguridad_ms.aplicaciones(id),
+    accion TEXT NOT NULL,           
+    tabla_afectada TEXT,           
+    dato_id TEXT,                  
+    valor_anterior JSONB,          
+    valor_nuevo JSONB,                             
+    fecha_accion TIMESTAMPTZ DEFAULT NOW()
+);
 
+
+-- 6. Historial de sesiones: Control de conexiones activas y pasadas
+CREATE TABLE seguridad_ms.historial_sesiones (
+    id SERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL REFERENCES seguridad_ms.usuarios(id),
+    aplicacion_id UUID REFERENCES seguridad_ms.aplicaciones(id),
+    rol_id INTEGER REFERENCES seguridad_ms.roles(id),
+    fecha_inicio TIMESTAMPTZ DEFAULT NOW(),
+    fecha_fin TIMESTAMPTZ,
+    ip_origen INET,
+    user_agent TEXT,               
+    token TEXT UNIQUE,       
+    estado VARCHAR(20) DEFAULT 'ACTIVA' CHECK (estado IN ('ACTIVA', 'CERRADA', 'EXPIRADA', 'BLOQUEADA'))
+);
 
 
 COMMENT ON SCHEMA seguridad_ms IS 'Microservicio encargado de autenticación, autorización y control de acceso de usuarios para diferentes aplicaciones';
@@ -72,3 +98,29 @@ COMMENT ON TABLE seguridad_ms.usuario_roles IS 'Tabla de relación que asigna ro
 
 COMMENT ON COLUMN seguridad_ms.usuario_roles.usuario_id IS 'Referencia al usuario al que se le asigna el rol';
 COMMENT ON COLUMN seguridad_ms.usuario_roles.rol_id IS 'Referencia al rol asignado al usuario';
+
+
+-- Comentarios para Auditoría
+COMMENT ON TABLE seguridad_ms.auditoria IS 'Registro de cambios y acciones críticas realizadas por los usuarios';
+
+COMMENT ON COLUMN seguridad_ms.auditoria.usuario_id IS 'Referencia al usuario que realizó la acción';
+COMMENT ON COLUMN seguridad_ms.auditoria.aplicacion_id IS 'Referencia a la aplicación a la que pertenece el usuario';
+COMMENT ON COLUMN seguridad_ms.auditoria.accion IS 'Tipo de operación realizada (CREATE, UPDATE, DELETE, etc.)';
+COMMENT ON COLUMN seguridad_ms.auditoria.tabla_afectada IS 'Tabla que fue afectada por la acción';
+COMMENT ON COLUMN seguridad_ms.auditoria.dato_id IS 'ID del registro que fue afectado';
+COMMENT ON COLUMN seguridad_ms.auditoria.valor_anterior IS 'Estado del registro en formato JSON antes de la modificación';
+COMMENT ON COLUMN seguridad_ms.auditoria.valor_nuevo IS 'Estado del registro en formato JSON después de la modificación';
+COMMENT ON COLUMN seguridad_ms.auditoria.fecha_accion IS 'Fecha y hora en que se realizó la acción';
+
+
+-- Comentarios para Historial de Sesiones
+COMMENT ON TABLE seguridad_ms.historial_sesiones IS 'Registro de inicios y cierres de sesión para control de accesos simultáneos';
+
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.usuario_id IS 'Referencia al usuario que inició sesión';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.aplicacion_id IS 'Referencia a la aplicación a la que pertenece el usuario';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.rol_id IS 'Referencia al rol asignado al usuario';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.fecha_inicio IS 'Fecha y hora en que se inició la sesión';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.fecha_fin IS 'Fecha y hora en que se cerró la sesión';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.user_agent IS 'Cadena de texto que identifica el navegador y sistema operativo del usuario';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.token IS 'Identificador único del token (JTI) para permitir la revocación de sesiones específicas';
+COMMENT ON COLUMN seguridad_ms.historial_sesiones.estado IS 'Estado de la sesión (ACTIVA, CERRADA, EXPIRADA, BLOQUEADA)';

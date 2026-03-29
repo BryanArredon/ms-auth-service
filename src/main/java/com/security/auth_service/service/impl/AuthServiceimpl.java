@@ -1,12 +1,18 @@
 package com.security.auth_service.service.impl;
 
+import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
+import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.RegisterRequest;
-import com.security.auth_service.entity.Usuario;
+import com.security.auth_service.entity.UsuarioEntity;
 import com.security.auth_service.repository.UsuarioRepository;
 import com.security.auth_service.service.AuthService;
+import com.security.auth_service.service.JwtService;
 import lombok.RequiredArgsConstructor;
+
+import java.time.LocalDateTime;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,43 +23,106 @@ public class AuthServiceimpl implements AuthService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (usuarioRepository.findByCorreo(request.getCorreo()).isPresent()) {
-            throw new RuntimeException("El correo ya está registrado");
-        }
-
-        Usuario nuevoUsuario = Usuario.builder()
+        usuarioRepository.findByCorreo(request.getCorreo())
+                .ifPresent(usuario -> 
+                    { throw new RuntimeException("El correo ya está registrado"); });
+        UsuarioEntity nuevoUsuario = UsuarioEntity.builder() 
                 .correo(request.getCorreo())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
-
         usuarioRepository.save(nuevoUsuario);
 
-        return AuthResponse.builder()
-                .userId(nuevoUsuario.getId())
-                .correo(nuevoUsuario.getCorreo())
-                .mensaje("Registro exitoso")
-                .build();
+        return buildAuthResponse(nuevoUsuario, "Registro exitoso");
     }
 
     public AuthResponse login(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByCorreo(request.getCorreo())
+        return usuarioRepository.findByCorreo(request.getCorreo())
+                .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
+                .map(this::validarEstadoUsuario)
+                .map(user -> {
+                    user.setUltimoAcceso(LocalDateTime.now());
+                    usuarioRepository.save(user);
+                    return buildAuthResponse(user, "Login exitoso");
+                })
                 .orElseThrow(() -> new RuntimeException("Credenciales inválidas"));
-
-        if (!passwordEncoder.matches(request.getPassword(), usuario.getPasswordHash())) {
-            throw new RuntimeException("Credenciales inválidas");
-        }
-
-        if (usuario.getCuentaBloqueada() != null && usuario.getCuentaBloqueada()) {
+    }
+    
+    private UsuarioEntity validarEstadoUsuario(UsuarioEntity usuario) {     
+        if (Boolean.TRUE.equals(usuario.getCuentaBloqueada())) {
             throw new RuntimeException("Su cuenta está bloqueada");
         }
+        return usuario;
+    }
 
+    private AuthResponse buildAuthResponse(UsuarioEntity usuario, String mensaje) {
+        String token = jwtService.generateToken(usuario.getCorreo());
         return AuthResponse.builder()
                 .userId(usuario.getId())
                 .correo(usuario.getCorreo())
-                .mensaje("Login exitoso")
+                .token(token)
+                .mensaje(mensaje)
                 .build();
+    }
+
+    @Override
+    public AuthResponse block(String correo) {
+        UsuarioEntity usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        usuario.setCuentaBloqueada(true);
+        usuarioRepository.save(usuario);
+        
+        return buildAuthResponse(usuario, "Cuenta bloqueada exitosamente");
+    }
+
+    public AuthResponse unblock(String correo) {
+        UsuarioEntity usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        usuario.setCuentaBloqueada(false);
+        usuarioRepository.save(usuario);
+        
+        return buildAuthResponse(usuario, "Cuenta desbloqueada exitosamente");
+    }
+
+    @Transactional
+    public AuthResponse updateCredentials(AtualizarCredencialesRequest request) {
+        UsuarioEntity usuario = usuarioRepository.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        if (!usuario.getCorreo().equals(request.getCorreo())) {
+            throw new RuntimeException("El correo no coincide con el usuario");
+        }
+        
+        usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        usuarioRepository.save(usuario);
+        
+        return buildAuthResponse(usuario, "Credenciales actualizadas exitosamente");
+    }
+
+    @Transactional
+    public AuthResponse logout(LoginRequest request) {
+        UsuarioEntity usuario = usuarioRepository.findByCorreo(request.getCorreo())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        return buildAuthResponse(usuario, "Logout exitoso");
+    }
+
+    @Transactional
+    public AuthResponse deleteAccount(EliminarCuentaRequest request) {
+        UsuarioEntity usuario = usuarioRepository.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        if (!usuario.getCorreo().equals(request.getCorreo())) {
+            throw new RuntimeException("El correo no coincide con el usuario");
+        }
+        
+        usuarioRepository.delete(usuario);
+        
+        return buildAuthResponse(usuario, "Cuenta eliminada exitosamente");
     }
 }

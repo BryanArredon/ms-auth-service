@@ -15,7 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Usuario {
+public class UsuarioEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -36,10 +36,13 @@ public class Usuario {
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "intentos_fallidos", columnDefinition = "int default 0")
+    private Integer intentosFallidos;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "usuario_roles", schema = "seguridad_ms", joinColumns = @JoinColumn(name = "usuario_id"), inverseJoinColumns = @JoinColumn(name = "rol_id"))
     @Builder.Default
-    private Set<Rol> roles = new HashSet<>();
+    private Set<RolEntity> roles = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

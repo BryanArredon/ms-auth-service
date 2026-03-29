@@ -19,9 +19,9 @@ Microservicio de autenticación y autorización construido con Spring Boot. Este
 El proyecto requiere un archivo `.env` en la raíz (junto al `pom.xml`) para funcionar correctamente y no exponer credenciales. Crea tu `.env` guiándote del `.env.example`:
 
 ```env
-DB_URL=jdbc:postgresql://<TU_HOST_SUPABASE>:5432/postgres
-DB_USERNAME=postgres
-DB_PASSWORD=<TU_PASSWORD>
+DB_URL=jdbc:postgresql://aws-1-us-east-1.pooler.supabase.com:6543/postgres?user=postgres.hkgauhhnzmeljzeycbnp&password=GIDS6083-2025
+DB_USERNAME=postgres.hkgauhhnzmeljzeycbnp
+DB_PASSWORD=GIDS6083-2025
 ```
 
 ---

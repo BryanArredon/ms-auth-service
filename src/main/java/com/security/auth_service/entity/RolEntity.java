@@ -10,7 +10,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Rol {
+public class RolEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,7 +18,7 @@ public class Rol {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "aplicacion_id")
-    private Aplicacion aplicacion;
+    private AplicacionEntity aplicacion;
 
     @Column(name = "nombre_rol", nullable = false)
     private String nombreRol;

@@ -1,6 +1,8 @@
 package com.security.auth_service.controller;
 
+import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
+import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.service.AuthService;
@@ -24,5 +26,30 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<AuthResponse> logout(@RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.logout(request));
+    }
+
+    @PutMapping("/bloquear-cuenta/{correo}")
+    public ResponseEntity<AuthResponse> block(@PathVariable String correo) {
+        return ResponseEntity.ok(authService.block(correo));
+    }
+
+    @PutMapping("/desbloquear-cuenta/{correo}")
+    public ResponseEntity<AuthResponse> unblock(@PathVariable String correo) {
+        return ResponseEntity.ok(authService.unblock(correo));
+    }
+
+    @PutMapping("/actualizar-credenciales")
+    public ResponseEntity<AuthResponse> updateCredentials(@RequestBody AtualizarCredencialesRequest request) {
+        return ResponseEntity.ok(authService.updateCredentials(request));
+    }
+
+    @DeleteMapping("/eliminar-cuenta")
+    public ResponseEntity<AuthResponse> deleteAccount(@RequestBody EliminarCuentaRequest request) {
+        return ResponseEntity.ok(authService.deleteAccount(request));
     }
 }
