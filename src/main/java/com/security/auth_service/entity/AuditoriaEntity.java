@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import jakarta.persistence.ManyToOne; 
 
 @Entity
 @Table(name = "auditoria", schema = "seguridad_ms")
@@ -29,11 +30,12 @@ public class AuditoriaEntity {
     @Column(name = "id")
     private Long id;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private UsuarioEntity usuario;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "aplicacion_id")
     private AplicacionEntity aplicacion;
 
