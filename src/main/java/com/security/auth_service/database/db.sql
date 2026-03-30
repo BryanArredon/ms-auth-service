@@ -14,7 +14,8 @@ CREATE TABLE seguridad_ms.aplicaciones (
 CREATE TABLE seguridad_ms.usuarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     correo TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT NULL,
+    proveedor_autenticacion VARCHAR(50) NULL,
     cuenta_bloqueada BOOLEAN DEFAULT FALSE,
     ultimo_acceso TIMESTAMPTZ,
     fecha_creacion TIMESTAMPTZ DEFAULT NOW()
@@ -82,6 +83,7 @@ COMMENT ON TABLE seguridad_ms.usuarios IS 'Usuarios registrados en el sistema co
 COMMENT ON COLUMN seguridad_ms.usuarios.id IS 'Identificador único del usuario generado mediante UUID';
 COMMENT ON COLUMN seguridad_ms.usuarios.correo IS 'Correo electrónico del usuario utilizado como identificador de inicio de sesión';
 COMMENT ON COLUMN seguridad_ms.usuarios.password_hash IS 'Contraseña del usuario almacenada de forma segura mediante hash';
+COMMENT ON COLUMN seguridad_ms.usuarios.proveedor_autenticacion IS 'Proveedor de autenticación utilizado por el usuario';
 COMMENT ON COLUMN seguridad_ms.usuarios.cuenta_bloqueada IS 'Indica si la cuenta del usuario está bloqueada por seguridad o administración';
 COMMENT ON COLUMN seguridad_ms.usuarios.ultimo_acceso IS 'Fecha y hora del último inicio de sesión exitoso del usuario';
 COMMENT ON COLUMN seguridad_ms.usuarios.fecha_creacion IS 'Fecha y hora en que el usuario fue registrado en el sistema';
