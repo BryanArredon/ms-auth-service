@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 @Table(name = "historial_sesiones", schema = "seguridad_ms")
@@ -29,15 +30,15 @@ public class HistorialSesionesEntity {
     @Column(name = "id")
     private Long id;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private UsuarioEntity usuario;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "aplicacion_id")
     private AplicacionEntity aplicacion;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rol_id")
     private RolEntity rol;
 
