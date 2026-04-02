@@ -6,6 +6,7 @@ import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.RegisterRequest;
+import com.security.auth_service.dto.VerifyMfaRequest;
 import com.security.auth_service.service.AuthService;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/verify-mfa")
+    public ResponseEntity<AuthResponse> verifyMfa(@RequestBody VerifyMfaRequest request) {
+        return ResponseEntity.ok(authService.verifyMfa(request));
     }
 
     @PostMapping("/logout")

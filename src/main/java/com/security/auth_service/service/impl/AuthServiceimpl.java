@@ -11,6 +11,11 @@ import com.security.auth_service.repository.UsuarioRepository;
 import com.security.auth_service.service.AuthService;
 import com.security.auth_service.service.JwtService;
 import com.security.auth_service.service.TokenBlacklistService;
+import com.security.auth_service.service.EmailService;
+import com.security.auth_service.utils.OtpGenerator;
+import com.security.auth_service.entity.MfaOtpeEntity;
+import com.security.auth_service.repository.MfaOtpeRepository;
+import com.security.auth_service.dto.VerifyMfaRequest;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -27,6 +32,9 @@ public class AuthServiceimpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final MfaOtpeRepository mfaOtpeRepository;
+    private final EmailService emailService;
+    private final OtpGenerator otpGenerator;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -42,16 +50,59 @@ public class AuthServiceimpl implements AuthService {
         return buildAuthResponse(nuevoUsuario, "Registro exitoso");
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-        return usuarioRepository.findByCorreo(request.getCorreo())
-                .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
+        UsuarioEntity user = usuarioRepository.findByCorreo(request.getCorreo())
+                .filter(u -> passwordEncoder.matches(request.getPassword(), u.getPasswordHash()))
                 .map(this::validarEstadoUsuario)
-                .map(user -> {
-                    user.setUltimoAcceso(LocalDateTime.now());
-                    usuarioRepository.save(user);
-                    return buildAuthResponse(user, "Login exitoso");
-                })
                 .orElseThrow(() -> new RuntimeException("Credenciales inválidas"));
+                
+        // Generar OTP
+        String otp = otpGenerator.generateOtp();
+        
+        // Reutilizar el registro si existe, o crear uno nuevo (evita error de constraint única)
+        MfaOtpeEntity mfaEntity = mfaOtpeRepository.findByUsuarioId(user.getId())
+                .orElse(new MfaOtpeEntity());
+                
+        mfaEntity.setUsuario(user);
+        mfaEntity.setCodigo(otp);
+        mfaEntity.setFechaCreacion(LocalDateTime.now());
+        mfaEntity.setExpiraEn(LocalDateTime.now().plusMinutes(5));
+        
+        mfaOtpeRepository.save(mfaEntity);
+        
+        // Enviar correo
+        emailService.sendOtpEmail(user.getCorreo(), otp);
+        
+        return AuthResponse.builder()
+                .requiresMfa(true)
+                .tempUserId(user.getId())
+                .mensaje("MFA requerido. Hemos enviado un código a tu correo.")
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public AuthResponse verifyMfa(VerifyMfaRequest request) {
+        MfaOtpeEntity mfaEntity = mfaOtpeRepository.findByUsuarioId(request.getTempUserId())
+                .orElseThrow(() -> new RuntimeException("No hay OTP pendiente para este usuario"));
+
+        if (!mfaEntity.getCodigo().equals(request.getOtp())) {
+            throw new RuntimeException("Código OTP incorrecto");
+        }
+
+        if (mfaEntity.getExpiraEn().isBefore(LocalDateTime.now())) {
+            mfaOtpeRepository.delete(mfaEntity);
+            throw new RuntimeException("El código OTP ha expirado");
+        }
+
+        UsuarioEntity user = mfaEntity.getUsuario();
+        user.setUltimoAcceso(LocalDateTime.now());
+        usuarioRepository.save(user);
+
+        mfaOtpeRepository.delete(mfaEntity);
+
+        return buildAuthResponse(user, "Login exitoso");
     }
     
     private UsuarioEntity validarEstadoUsuario(UsuarioEntity usuario) {     
