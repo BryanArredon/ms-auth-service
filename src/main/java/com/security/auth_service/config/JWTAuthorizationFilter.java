@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 import io.jsonwebtoken.Claims;
@@ -24,6 +25,8 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 
+import com.security.auth_service.service.TokenBlacklistService;
+
 @Component
 public class JWTAuthorizationFilter extends OncePerRequestFilter {
 
@@ -32,6 +35,9 @@ public class JWTAuthorizationFilter extends OncePerRequestFilter {
 
     @Value("${jwt.secret}")
     private String secret;
+
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     private Claims validateToken(HttpServletRequest request) {
         String jwtToken = request.getHeader(HEADER).replace(PREFIX, "");
@@ -68,6 +74,24 @@ public class JWTAuthorizationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             if (isJWTValid(request)) {
+                String jwtToken = request.getHeader(HEADER).replace(PREFIX, "");
+
+                // Verificar si el token está en la blacklist
+                if (tokenBlacklistService.isTokenBlacklisted(jwtToken)) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+
+                    String jsonError = String.format(
+                        "{\"timestamp\": \"%s\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token inválido - sesión cerrada\", \"path\": \"%s\"}",
+                        java.time.LocalDateTime.now(),
+                        request.getRequestURI()
+                    );
+
+                    response.getWriter().write(jsonError);
+                    return;
+                }
+
                 Claims claims = validateToken(request);
                 if (claims.get("authorities") != null) {
                     setAuthentication(claims);
@@ -82,13 +106,13 @@ public class JWTAuthorizationFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
-            
+
             String jsonError = String.format(
-                "{\"timestamp\": \"%s\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token inválido o expirado\", \"path\": \"%s\"}", 
-                java.time.LocalDateTime.now(), 
+                "{\"timestamp\": \"%s\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token inválido o expirado\", \"path\": \"%s\"}",
+                java.time.LocalDateTime.now(),
                 request.getRequestURI()
             );
-            
+
             response.getWriter().write(jsonError);
         }
     }

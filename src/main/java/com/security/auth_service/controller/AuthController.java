@@ -4,6 +4,7 @@ import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
+import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.service.AuthService;
 
@@ -29,7 +30,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<AuthResponse> logout(@RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> logout(@RequestBody LogoutRequest request) {
         return ResponseEntity.ok(authService.logout(request));
     }
 

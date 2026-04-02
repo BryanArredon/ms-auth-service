@@ -4,6 +4,7 @@ import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
+import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.RegisterRequest;
 
 public interface AuthService {
@@ -17,7 +18,7 @@ public interface AuthService {
 
     AuthResponse deleteAccount(EliminarCuentaRequest request);
 
-    AuthResponse logout(LoginRequest request);
+    AuthResponse logout(LogoutRequest request);
 
     AuthResponse unblock(String correo);
 }
