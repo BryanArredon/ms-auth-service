@@ -3,12 +3,14 @@ package com.security.auth_service.service.impl;
 import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
+import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.entity.UsuarioEntity;
 import com.security.auth_service.repository.UsuarioRepository;
 import com.security.auth_service.service.AuthService;
 import com.security.auth_service.service.JwtService;
+import com.security.auth_service.service.TokenBlacklistService;
 import com.security.auth_service.service.EmailService;
 import com.security.auth_service.utils.OtpGenerator;
 import com.security.auth_service.entity.MfaOtpeEntity;
@@ -29,6 +31,7 @@ public class AuthServiceimpl implements AuthService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final TokenBlacklistService tokenBlacklistService;
     private final MfaOtpeRepository mfaOtpeRepository;
     private final EmailService emailService;
     private final OtpGenerator otpGenerator;
@@ -156,11 +159,14 @@ public class AuthServiceimpl implements AuthService {
     }
 
     @Transactional
-    public AuthResponse logout(LoginRequest request) {
-        UsuarioEntity usuario = usuarioRepository.findByCorreo(request.getCorreo())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        
-        return buildAuthResponse(usuario, "Logout exitoso");
+    public AuthResponse logout(LogoutRequest request) {
+        // Agregar el token a la blacklist
+        tokenBlacklistService.blacklistToken(request.getToken());
+
+        // Devolver una respuesta genérica ya que no necesitamos el usuario específico
+        return AuthResponse.builder()
+                .mensaje("Logout exitoso - token invalidado")
+                .build();
     }
 
     @Transactional
