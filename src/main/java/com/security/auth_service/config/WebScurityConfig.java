@@ -22,6 +22,8 @@ public class WebScurityConfig {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-mfa", "/api/auth/mfa/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-mfa", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated()
             
         ) 
