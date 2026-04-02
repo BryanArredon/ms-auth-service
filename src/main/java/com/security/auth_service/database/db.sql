@@ -66,6 +66,15 @@ CREATE TABLE seguridad_ms.historial_sesiones (
 );
 
 
+CREATE TABLE seguridad_ms.mfa_otps (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    usuario_id UUID NOT NULL REFERENCES seguridad_ms.usuarios(id) ON DELETE CASCADE,
+    codigo VARCHAR(6) NOT NULL,
+    expira_en TIMESTAMPTZ NOT NULL,
+    fecha_creacion TIMESTAMPTZ DEFAULT NOW(),UNIQUE(usuario_id)
+);
+
+
 COMMENT ON SCHEMA seguridad_ms IS 'Microservicio encargado de autenticación, autorización y control de acceso de usuarios para diferentes aplicaciones';
 
 -- TABLA: aplicaciones
@@ -126,3 +135,9 @@ COMMENT ON COLUMN seguridad_ms.historial_sesiones.fecha_fin IS 'Fecha y hora en 
 COMMENT ON COLUMN seguridad_ms.historial_sesiones.user_agent IS 'Cadena de texto que identifica el navegador y sistema operativo del usuario';
 COMMENT ON COLUMN seguridad_ms.historial_sesiones.token IS 'Identificador único del token (JTI) para permitir la revocación de sesiones específicas';
 COMMENT ON COLUMN seguridad_ms.historial_sesiones.estado IS 'Estado de la sesión (ACTIVA, CERRADA, EXPIRADA, BLOQUEADA)';
+
+-- Comentarios para MFA OTPs
+COMMENT ON TABLE seguridad_ms.mfa_otps IS 'Almacén de corta duración de códigos temporalmente enviados por Correo o SMS';
+
+COMMENT ON COLUMN seguridad_ms.mfa_otps.codigo IS 'Los 6 números que debe ingresar el enfermero';
+COMMENT ON COLUMN seguridad_ms.mfa_otps.expira_en IS 'La hora exacta donde el código muere y ya no sirve';

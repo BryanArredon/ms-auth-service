@@ -11,11 +11,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private UUID userId;
-    private String correo;
-    private String token;
-    private String mensaje;
-    private Boolean requiresMfa;
+public class VerifyMfaRequest {
     private UUID tempUserId;
+    private String otp;
 }
