@@ -30,6 +30,12 @@ public class UsuarioEntity {
     @Column(name = "cuenta_bloqueada")
     private Boolean cuentaBloqueada;
 
+    @Column(name = "google_auth_secret", length = 32)
+    private String googleAuthSecret;
+
+    @Column(name = "google_auth_activo")
+    private Boolean googleAuthActivo;
+
     @Column(name = "ultimo_acceso")
     private LocalDateTime ultimoAcceso;
 
@@ -51,6 +57,9 @@ public class UsuarioEntity {
         }
         if (cuentaBloqueada == null) {
             cuentaBloqueada = false;
+        }
+        if (googleAuthActivo == null) {
+            googleAuthActivo = false;
         }
     }
 }

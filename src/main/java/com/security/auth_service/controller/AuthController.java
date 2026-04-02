@@ -6,6 +6,8 @@ import com.security.auth_service.dto.EliminarCuentaRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.dto.VerifyMfaRequest;
+import com.security.auth_service.dto.MfaSetupResponse;
+import com.security.auth_service.dto.EnableTotpRequest;
 import com.security.auth_service.service.AuthService;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,16 @@ public class AuthController {
     @PostMapping("/verify-mfa")
     public ResponseEntity<AuthResponse> verifyMfa(@RequestBody VerifyMfaRequest request) {
         return ResponseEntity.ok(authService.verifyMfa(request));
+    }
+
+    @GetMapping("/mfa/setup-totp/{correo}")
+    public ResponseEntity<MfaSetupResponse> setupTotp(@PathVariable String correo) {
+        return ResponseEntity.ok(authService.setupTotp(correo));
+    }
+
+    @PostMapping("/mfa/enable-totp")
+    public ResponseEntity<AuthResponse> enableTotp(@RequestBody EnableTotpRequest request) {
+        return ResponseEntity.ok(authService.enableTotp(request));
     }
 
     @PostMapping("/logout")

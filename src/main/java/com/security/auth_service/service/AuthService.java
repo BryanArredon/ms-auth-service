@@ -12,6 +12,10 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
 
     AuthResponse verifyMfa(com.security.auth_service.dto.VerifyMfaRequest request);
+    
+    com.security.auth_service.dto.MfaSetupResponse setupTotp(String correo);
+    
+    AuthResponse enableTotp(com.security.auth_service.dto.EnableTotpRequest request);
 
     AuthResponse block(String correo);
 
