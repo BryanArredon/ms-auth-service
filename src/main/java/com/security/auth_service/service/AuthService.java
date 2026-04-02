@@ -11,6 +11,8 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
+    AuthResponse verifyMfa(com.security.auth_service.dto.VerifyMfaRequest request);
+
     AuthResponse block(String correo);
 
     AuthResponse updateCredentials(AtualizarCredencialesRequest request);
