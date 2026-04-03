@@ -39,6 +39,15 @@ public class UsuarioEntity {
     @Column(name = "intentos_fallidos", columnDefinition = "int default 0")
     private Integer intentosFallidos;
 
+    @Column(name = "password_expirado_en")
+    private LocalDateTime passwordExpiradoEn;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PasswordHistoryEntity> passwordHistory = new HashSet<>();
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PasswordResetTokenEntity> resetTokens = new HashSet<>();
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "usuario_roles", schema = "seguridad_ms", joinColumns = @JoinColumn(name = "usuario_id"), inverseJoinColumns = @JoinColumn(name = "rol_id"))
     @Builder.Default

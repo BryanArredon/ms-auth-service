@@ -3,15 +3,20 @@ package com.security.auth_service.service.impl;
 import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
+import com.security.auth_service.dto.ForgotPasswordRequest;
 import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.RegisterRequest;
+import com.security.auth_service.dto.ResetPasswordRequest;
+import com.security.auth_service.dto.ValidateResetTokenRequest;
 import com.security.auth_service.entity.UsuarioEntity;
+import com.security.auth_service.entity.PasswordResetTokenEntity;
 import com.security.auth_service.repository.UsuarioRepository;
 import com.security.auth_service.service.AuthService;
 import com.security.auth_service.service.JwtService;
 import com.security.auth_service.service.TokenBlacklistService;
 import com.security.auth_service.service.EmailService;
+import com.security.auth_service.service.PasswordManagementService;
 import com.security.auth_service.utils.OtpGenerator;
 import com.security.auth_service.entity.MfaOtpeEntity;
 import com.security.auth_service.repository.MfaOtpeRepository;
@@ -35,6 +40,7 @@ public class AuthServiceimpl implements AuthService {
     private final MfaOtpeRepository mfaOtpeRepository;
     private final EmailService emailService;
     private final OtpGenerator otpGenerator;
+    private final PasswordManagementService passwordManagementService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -45,6 +51,10 @@ public class AuthServiceimpl implements AuthService {
                 .correo(request.getCorreo())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
+        
+        // Establecer expiración de contraseña (90 días desde creación)
+        passwordManagementService.setPasswordExpiry(nuevoUsuario);
+        
         usuarioRepository.save(nuevoUsuario);
 
         return buildAuthResponse(nuevoUsuario, "Registro exitoso");
@@ -109,6 +119,13 @@ public class AuthServiceimpl implements AuthService {
         if (Boolean.TRUE.equals(usuario.getCuentaBloqueada())) {
             throw new RuntimeException("Su cuenta está bloqueada");
         }
+
+        // Validar si la contraseña ha expirado
+        if (passwordManagementService.isPasswordExpired(usuario)) {
+            long diasVencidos = Math.abs(passwordManagementService.getDaysUntilPasswordExpiry(usuario));
+            throw new RuntimeException("Tu contraseña ha expirado hace " + diasVencidos + " días. Por favor, cámbiala.");
+        }
+
         return usuario;
     }
 
@@ -151,8 +168,21 @@ public class AuthServiceimpl implements AuthService {
         if (!usuario.getCorreo().equals(request.getCorreo())) {
             throw new RuntimeException("El correo no coincide con el usuario");
         }
-        
+
+        // Validar que la nueva contraseña no esté en el historial
+        if (passwordManagementService.isPasswordInHistory(usuario, request.getPassword())) {
+            throw new RuntimeException("No puedes usar una contraseña que ya has usado antes. Elige una nueva.");
+        }
+
+        // Guardar contraseña anterior en historial
+        passwordManagementService.savePasswordToHistory(usuario, usuario.getPasswordHash());
+
+        // Actualizar contraseña
         usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+        // Establecer nueva expiración (90 días)
+        passwordManagementService.setPasswordExpiry(usuario);
+
         usuarioRepository.save(usuario);
         
         return buildAuthResponse(usuario, "Credenciales actualizadas exitosamente");
@@ -181,5 +211,77 @@ public class AuthServiceimpl implements AuthService {
         usuarioRepository.delete(usuario);
         
         return buildAuthResponse(usuario, "Cuenta eliminada exitosamente");
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse forgotPassword(ForgotPasswordRequest request) {
+        UsuarioEntity usuario = usuarioRepository.findByCorreo(request.getCorreo())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        // Generar token de recuperación
+        String resetToken = passwordManagementService.generatePasswordResetToken(usuario);
+
+        // Enviar correo con link de recuperación
+        String resetLink = "https://tu-dominio.com/reset-password?token=" + resetToken;
+        emailService.sendPasswordResetEmail(usuario.getCorreo(), resetLink);
+
+        return AuthResponse.builder()
+                .mensaje("Se ha enviado un correo de recuperación. Revisa tu bandeja de entrada.")
+                .build();
+    }
+
+    @Override
+    public AuthResponse validateResetToken(ValidateResetTokenRequest request) {
+        PasswordResetTokenEntity token = passwordManagementService.validateResetToken(request.getToken());
+
+        if (token == null) {
+            throw new RuntimeException("Token inválido o expirado");
+        }
+
+        return AuthResponse.builder()
+                .mensaje("Token válido")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse resetPassword(ResetPasswordRequest request) {
+        // Validar que las contraseñas coincidan
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Las contraseñas no coinciden");
+        }
+
+        // Validar token
+        PasswordResetTokenEntity resetToken = passwordManagementService.validateResetToken(request.getToken());
+        if (resetToken == null) {
+            throw new RuntimeException("Token inválido o expirado");
+        }
+
+        UsuarioEntity usuario = resetToken.getUsuario();
+
+        // Validar que no reutilice contraseña anterior
+        if (passwordManagementService.isPasswordInHistory(usuario, request.getNewPassword())) {
+            throw new RuntimeException("No puedes usar una contraseña que ya has usado antes");
+        }
+
+        // Guardar contraseña nueva en historial
+        passwordManagementService.savePasswordToHistory(usuario, usuario.getPasswordHash());
+
+        // Actualizar contraseña
+        usuario.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+
+        // Establecer expiración de contraseña (90 días)
+        passwordManagementService.setPasswordExpiry(usuario);
+
+        usuarioRepository.save(usuario);
+
+        // Marcar token como usado
+        passwordManagementService.invalidateResetToken(resetToken);
+
+        return AuthResponse.builder()
+                .correo(usuario.getCorreo())
+                .mensaje("Contraseña actualizada exitosamente. Por favor inicia sesión.")
+                .build();
     }
 }
