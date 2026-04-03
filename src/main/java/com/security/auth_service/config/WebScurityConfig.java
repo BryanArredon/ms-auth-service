@@ -25,6 +25,9 @@ public class WebScurityConfig {
                            "/api/auth/logout", "/api/auth/forgot-password", 
                            "/api/auth/validate-reset-token", "/api/auth/reset-password",
                            "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-mfa", "/api/auth/mfa/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-mfa", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated()
             
         ) 

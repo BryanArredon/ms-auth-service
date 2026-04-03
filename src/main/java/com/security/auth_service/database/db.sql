@@ -16,6 +16,8 @@ CREATE TABLE seguridad_ms.usuarios (
     correo TEXT UNIQUE NOT NULL,
     password_hash TEXT NULL,
     proveedor_autenticacion VARCHAR(50) NULL,
+    google_auth_secret VARCHAR(32) NULL,
+    google_auth_activo BOOLEAN DEFAULT FALSE,
     cuenta_bloqueada BOOLEAN DEFAULT FALSE,
     ultimo_acceso TIMESTAMPTZ,
     fecha_creacion TIMESTAMPTZ DEFAULT NOW()

@@ -18,9 +18,12 @@ import com.security.auth_service.service.TokenBlacklistService;
 import com.security.auth_service.service.EmailService;
 import com.security.auth_service.service.PasswordManagementService;
 import com.security.auth_service.utils.OtpGenerator;
+import com.security.auth_service.service.TotpService;
 import com.security.auth_service.entity.MfaOtpeEntity;
 import com.security.auth_service.repository.MfaOtpeRepository;
 import com.security.auth_service.dto.VerifyMfaRequest;
+import com.security.auth_service.dto.MfaSetupResponse;
+import com.security.auth_service.dto.EnableTotpRequest;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -41,6 +44,7 @@ public class AuthServiceimpl implements AuthService {
     private final EmailService emailService;
     private final OtpGenerator otpGenerator;
     private final PasswordManagementService passwordManagementService;
+    private final TotpService totpService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -94,25 +98,74 @@ public class AuthServiceimpl implements AuthService {
     @Transactional
     @Override
     public AuthResponse verifyMfa(VerifyMfaRequest request) {
-        MfaOtpeEntity mfaEntity = mfaOtpeRepository.findByUsuarioId(request.getTempUserId())
-                .orElseThrow(() -> new RuntimeException("No hay OTP pendiente para este usuario"));
+        UsuarioEntity user = null;
+        boolean isValid = false;
 
-        if (!mfaEntity.getCodigo().equals(request.getOtp())) {
-            throw new RuntimeException("Código OTP incorrecto");
+        // Opción 1: Validar contra correo (OTP Temporal)
+        java.util.Optional<MfaOtpeEntity> mfaEntityOpt = mfaOtpeRepository.findByUsuarioId(request.getTempUserId());
+        if (mfaEntityOpt.isPresent() && mfaEntityOpt.get().getExpiraEn().isAfter(LocalDateTime.now())) {
+            MfaOtpeEntity mfaEntity = mfaEntityOpt.get();
+            if (mfaEntity.getCodigo().equals(request.getOtp())) {
+                isValid = true;
+                user = mfaEntity.getUsuario();
+                mfaOtpeRepository.delete(mfaEntity); 
+            }
         }
 
-        if (mfaEntity.getExpiraEn().isBefore(LocalDateTime.now())) {
-            mfaOtpeRepository.delete(mfaEntity);
-            throw new RuntimeException("El código OTP ha expirado");
+        // Opción 2: Validar contra Google Authenticator (TOTP)
+        if (!isValid) {
+            user = usuarioRepository.findById(request.getTempUserId())
+                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado basado en tempUserId"));
+            if (Boolean.TRUE.equals(user.getGoogleAuthActivo())) {
+                if (totpService.verifyCode(user.getGoogleAuthSecret(), request.getOtp())) {
+                    isValid = true;
+                }
+            }
         }
 
-        UsuarioEntity user = mfaEntity.getUsuario();
+        if (!isValid) {
+            throw new RuntimeException("Código OTP o TOTP incorrecto/expirado");
+        }
+
         user.setUltimoAcceso(LocalDateTime.now());
         usuarioRepository.save(user);
 
-        mfaOtpeRepository.delete(mfaEntity);
-
         return buildAuthResponse(user, "Login exitoso");
+    }
+
+    @Transactional
+    @Override
+    public MfaSetupResponse setupTotp(String correo) {
+        UsuarioEntity user = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                
+        String secret = totpService.generateSecret();
+        user.setGoogleAuthSecret(secret);
+        user.setGoogleAuthActivo(false); 
+        usuarioRepository.save(user);
+        
+        String qrUri = totpService.getUriForImage(secret, user.getCorreo());
+        return MfaSetupResponse.builder().secret(secret).qrDataUri(qrUri).build();
+    }
+
+    @Transactional
+    @Override
+    public AuthResponse enableTotp(EnableTotpRequest request) {
+        UsuarioEntity user = usuarioRepository.findByCorreo(request.getCorreo())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                
+        if (user.getGoogleAuthSecret() == null) {
+            throw new RuntimeException("No has iniciado la configuración TOTP");
+        }
+        
+        if (!totpService.verifyCode(user.getGoogleAuthSecret(), request.getCode())) {
+            throw new RuntimeException("Código de Google Autenticator inválido");
+        }
+        
+        user.setGoogleAuthActivo(true);
+        usuarioRepository.save(user);
+        
+        return buildAuthResponse(user, "Google Authenticator activado con éxito");
     }
     
     private UsuarioEntity validarEstadoUsuario(UsuarioEntity usuario) {     
