@@ -27,10 +27,12 @@ import com.security.auth_service.dto.EnableTotpRequest;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @RequiredArgsConstructor
@@ -64,13 +66,25 @@ public class AuthServiceimpl implements AuthService {
         return buildAuthResponse(nuevoUsuario, "Registro exitoso");
     }
 
-    @Transactional
+    @Override
     public AuthResponse login(LoginRequest request) {
         UsuarioEntity user = usuarioRepository.findByCorreo(request.getCorreo())
-                .filter(u -> passwordEncoder.matches(request.getPassword(), u.getPasswordHash()))
-                .map(this::validarEstadoUsuario)
                 .orElseThrow(() -> new RuntimeException("Credenciales inválidas"));
-                
+
+        if (Boolean.TRUE.equals(user.getCuentaBloqueada())) {
+            throw new RuntimeException("Cuenta bloqueada. Por favor restablece tu acceso.");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            registrarIntentoFallido(user.getId()); // Solo pasar el ID
+            throw new RuntimeException("Credenciales inválidas");
+        }
+
+        // Contraseña correcta: resetear contador
+        resetearIntentosFallidos(user.getId());
+
+        user = validarEstadoUsuario(user);
+
         // Generar OTP
         String otp = otpGenerator.generateOtp();
         
@@ -166,6 +180,48 @@ public class AuthServiceimpl implements AuthService {
         usuarioRepository.save(user);
         
         return buildAuthResponse(user, "Google Authenticator activado con éxito");
+    }
+    
+    /**
+     * Registra un intento fallido de login EN SU PROPIA TRANSACCIÓN COMPLETA
+     * Usa el ID para evitar problemas de detached entities
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarIntentoFallido(UUID userId) {
+        UsuarioEntity usuarioActual = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        int fallidos = (usuarioActual.getIntentosFallidos() == null ? 0 : usuarioActual.getIntentosFallidos()) + 1;
+        usuarioActual.setIntentosFallidos(fallidos);
+        
+        System.out.println("📊 Estado ANTES: intentos_fallidos = " + (usuarioActual.getIntentosFallidos() - 1) + 
+                          " | cuenta_bloqueada = " + usuarioActual.getCuentaBloqueada());
+        
+        if (fallidos >= 5) {
+            usuarioActual.setCuentaBloqueada(true);
+            System.out.println("⚠️ CUENTA BLOQUEADA: " + usuarioActual.getCorreo() + " después de " + fallidos + " intentos");
+        } else {
+            System.out.println("❌ Intento fallido #" + fallidos + " para: " + usuarioActual.getCorreo());
+        }
+        
+        UsuarioEntity guardado = usuarioRepository.saveAndFlush(usuarioActual);
+        System.out.println("✅ GUARDADO en BD: intentos_fallidos = " + guardado.getIntentosFallidos() + 
+                          " | cuenta_bloqueada = " + guardado.getCuentaBloqueada());
+    }
+
+    /**
+     * Resetea los intentos fallidos cuando el login es exitoso
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void resetearIntentosFallidos(UUID userId) {
+        UsuarioEntity usuarioActual = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        usuarioActual.setIntentosFallidos(0);
+        usuarioActual.setCuentaBloqueada(false);
+        usuarioRepository.saveAndFlush(usuarioActual);
+        
+        System.out.println("🔄 Intentos reseteados para: " + usuarioActual.getCorreo());
     }
     
     private UsuarioEntity validarEstadoUsuario(UsuarioEntity usuario) {     
@@ -323,6 +379,10 @@ public class AuthServiceimpl implements AuthService {
 
         // Actualizar contraseña
         usuario.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+
+        // Restablecer condiciones de bloqueo y contador de fallos
+        usuario.setCuentaBloqueada(false);
+        usuario.setIntentosFallidos(0);
 
         // Establecer expiración de contraseña (90 días)
         passwordManagementService.setPasswordExpiry(usuario);

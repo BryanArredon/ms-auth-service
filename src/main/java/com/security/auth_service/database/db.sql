@@ -19,6 +19,7 @@ CREATE TABLE seguridad_ms.usuarios (
     google_auth_secret VARCHAR(32) NULL,
     google_auth_activo BOOLEAN DEFAULT FALSE,
     cuenta_bloqueada BOOLEAN DEFAULT FALSE,
+    intentos_fallidos INTEGER DEFAULT 0,
     ultimo_acceso TIMESTAMPTZ,
     fecha_creacion TIMESTAMPTZ DEFAULT NOW()
 );
@@ -136,6 +137,7 @@ COMMENT ON COLUMN seguridad_ms.usuarios.correo IS 'Correo electrónico del usuar
 COMMENT ON COLUMN seguridad_ms.usuarios.password_hash IS 'Contraseña del usuario almacenada de forma segura mediante hash';
 COMMENT ON COLUMN seguridad_ms.usuarios.proveedor_autenticacion IS 'Proveedor de autenticación utilizado por el usuario';
 COMMENT ON COLUMN seguridad_ms.usuarios.cuenta_bloqueada IS 'Indica si la cuenta del usuario está bloqueada por seguridad o administración';
+COMMENT ON COLUMN seguridad_ms.usuarios.intentos_fallidos IS 'Número de intentos de inicio fallidos seguidos, se bloquea al llegar a 5';
 COMMENT ON COLUMN seguridad_ms.usuarios.ultimo_acceso IS 'Fecha y hora del último inicio de sesión exitoso del usuario';
 COMMENT ON COLUMN seguridad_ms.usuarios.fecha_creacion IS 'Fecha y hora en que el usuario fue registrado en el sistema';
 
