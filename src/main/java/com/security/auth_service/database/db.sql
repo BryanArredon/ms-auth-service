@@ -73,8 +73,48 @@ CREATE TABLE seguridad_ms.mfa_otps (
     usuario_id UUID NOT NULL REFERENCES seguridad_ms.usuarios(id) ON DELETE CASCADE,
     codigo VARCHAR(6) NOT NULL,
     expira_en TIMESTAMPTZ NOT NULL,
-    fecha_creacion TIMESTAMPTZ DEFAULT NOW(),UNIQUE(usuario_id)
+    fecha_creacion TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_mfa_usuario UNIQUE (usuario_id)
 );
+
+-- 7. Gestión de contraseñas: expiración, historial y reset tokens
+ALTER TABLE seguridad_ms.usuarios
+ADD COLUMN password_expirado_en TIMESTAMPTZ NULL;
+
+CREATE TABLE seguridad_ms.password_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    fecha_cambio TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_password_history_usuario
+      FOREIGN KEY (usuario_id) REFERENCES seguridad_ms.usuarios(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_password_history_usuario_id
+  ON seguridad_ms.password_history(usuario_id);
+
+CREATE INDEX idx_password_history_fecha_cambio
+  ON seguridad_ms.password_history(fecha_cambio DESC);
+
+CREATE TABLE seguridad_ms.password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fecha_expiracion TIMESTAMPTZ NOT NULL,
+    estirado BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_password_reset_usuario
+      FOREIGN KEY (usuario_id) REFERENCES seguridad_ms.usuarios(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_password_reset_token
+  ON seguridad_ms.password_reset_tokens(token);
+
+CREATE INDEX idx_password_reset_usuario_id
+  ON seguridad_ms.password_reset_tokens(usuario_id);
+
+CREATE INDEX idx_password_reset_expiracion
+  ON seguridad_ms.password_reset_tokens(fecha_expiracion);
 
 
 COMMENT ON SCHEMA seguridad_ms IS 'Microservicio encargado de autenticación, autorización y control de acceso de usuarios para diferentes aplicaciones';
@@ -143,3 +183,25 @@ COMMENT ON TABLE seguridad_ms.mfa_otps IS 'Almacén de corta duración de códig
 
 COMMENT ON COLUMN seguridad_ms.mfa_otps.codigo IS 'Los 6 números que debe ingresar el enfermero';
 COMMENT ON COLUMN seguridad_ms.mfa_otps.expira_en IS 'La hora exacta donde el código muere y ya no sirve';
+
+-- Comentarios para gestión de contraseñas
+COMMENT ON COLUMN seguridad_ms.usuarios.password_expirado_en IS 'Fecha en que la contraseña del usuario expira (indica cambio obligatorio cada 90 días)';
+
+COMMENT ON TABLE seguridad_ms.password_history IS 'Historial de contraseñas anteriores para evitar reutilización';
+COMMENT ON COLUMN seguridad_ms.password_history.usuario_id IS 'Usuario vinculado al historial de contraseñas';
+COMMENT ON COLUMN seguridad_ms.password_history.password_hash IS 'Hash de la contraseña antigua, con bcrypt';
+COMMENT ON COLUMN seguridad_ms.password_history.fecha_cambio IS 'Fecha y hora en que se registró la contraseña en el historial';
+
+COMMENT ON TABLE seguridad_ms.password_reset_tokens IS 'Tokens temporales para recuperación de contraseña; únicos y expirables';
+COMMENT ON COLUMN seguridad_ms.password_reset_tokens.usuario_id IS 'Usuario que solicita recuperación de contraseña';
+COMMENT ON COLUMN seguridad_ms.password_reset_tokens.token IS 'Token de recuperación que se envía por email';
+COMMENT ON COLUMN seguridad_ms.password_reset_tokens.fecha_creacion IS 'Timestamp en que se generó el token';
+COMMENT ON COLUMN seguridad_ms.password_reset_tokens.fecha_expiracion IS 'Fecha/hora de vencimiento del token (15 minutos)';
+COMMENT ON COLUMN seguridad_ms.password_reset_tokens.estirado IS 'Indicador de token usado (no reutilizable)';
+
+-- Comentarios para índices de gestión de contraseñas
+COMMENT ON INDEX idx_password_history_usuario_id IS 'Índice para buscar el historial de contraseñas por usuario';
+COMMENT ON INDEX idx_password_history_fecha_cambio IS 'Índice para ordenar historial de contraseñas por fecha de cambio';
+COMMENT ON INDEX idx_password_reset_token IS 'Índice para búsqueda rápida de token de recuperación';
+COMMENT ON INDEX idx_password_reset_usuario_id IS 'Índice para listar tokens de recuperación por usuario';
+COMMENT ON INDEX idx_password_reset_expiracion IS 'Índice para limpieza de tokens expirados y búsquedas por caducidad';

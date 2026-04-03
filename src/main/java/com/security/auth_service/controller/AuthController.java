@@ -3,9 +3,12 @@ package com.security.auth_service.controller;
 import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
+import com.security.auth_service.dto.ForgotPasswordRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.RegisterRequest;
+import com.security.auth_service.dto.ResetPasswordRequest;
+import com.security.auth_service.dto.ValidateResetTokenRequest;
 import com.security.auth_service.dto.VerifyMfaRequest;
 import com.security.auth_service.dto.MfaSetupResponse;
 import com.security.auth_service.dto.EnableTotpRequest;
@@ -70,5 +73,20 @@ public class AuthController {
     @DeleteMapping("/eliminar-cuenta")
     public ResponseEntity<AuthResponse> deleteAccount(@RequestBody EliminarCuentaRequest request) {
         return ResponseEntity.ok(authService.deleteAccount(request));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<AuthResponse> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(authService.forgotPassword(request));
+    }
+
+    @PostMapping("/validate-reset-token")
+    public ResponseEntity<AuthResponse> validateResetToken(@RequestBody ValidateResetTokenRequest request) {
+        return ResponseEntity.ok(authService.validateResetToken(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<AuthResponse> resetPassword(@RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(authService.resetPassword(request));
     }
 }
