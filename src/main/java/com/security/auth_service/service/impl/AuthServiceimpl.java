@@ -1,38 +1,40 @@
 package com.security.auth_service.service.impl;
 
-import com.security.auth_service.dto.AtualizarCredencialesRequest;
-import com.security.auth_service.dto.AuthResponse;
-import com.security.auth_service.dto.EliminarCuentaRequest;
-import com.security.auth_service.dto.ForgotPasswordRequest;
-import com.security.auth_service.dto.LogoutRequest;
-import com.security.auth_service.dto.LoginRequest;
-import com.security.auth_service.dto.RegisterRequest;
-import com.security.auth_service.dto.ResetPasswordRequest;
-import com.security.auth_service.dto.ValidateResetTokenRequest;
-import com.security.auth_service.entity.UsuarioEntity;
-import com.security.auth_service.entity.PasswordResetTokenEntity;
-import com.security.auth_service.repository.UsuarioRepository;
-import com.security.auth_service.service.AuthService;
-import com.security.auth_service.service.JwtService;
-import com.security.auth_service.service.TokenBlacklistService;
-import com.security.auth_service.service.EmailService;
-import com.security.auth_service.service.PasswordManagementService;
-import com.security.auth_service.utils.OtpGenerator;
-import com.security.auth_service.service.TotpService;
-import com.security.auth_service.entity.MfaOtpeEntity;
-import com.security.auth_service.repository.MfaOtpeRepository;
-import com.security.auth_service.dto.VerifyMfaRequest;
-import com.security.auth_service.dto.MfaSetupResponse;
-import com.security.auth_service.dto.EnableTotpRequest;
-import lombok.RequiredArgsConstructor;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.security.auth_service.dto.AtualizarCredencialesRequest;
+import com.security.auth_service.dto.AuthResponse;
+import com.security.auth_service.dto.EliminarCuentaRequest;
+import com.security.auth_service.dto.EnableTotpRequest;
+import com.security.auth_service.dto.ForgotPasswordRequest;
+import com.security.auth_service.dto.LoginRequest;
+import com.security.auth_service.dto.LogoutRequest;
+import com.security.auth_service.dto.MfaSetupResponse;
+import com.security.auth_service.dto.RegisterRequest;
+import com.security.auth_service.dto.ResetPasswordRequest;
+import com.security.auth_service.dto.ValidateResetTokenRequest;
+import com.security.auth_service.dto.VerifyMfaRequest;
+import com.security.auth_service.entity.MfaOtpeEntity;
+import com.security.auth_service.entity.PasswordResetTokenEntity;
+import com.security.auth_service.entity.UsuarioEntity;
+import com.security.auth_service.repository.MfaOtpeRepository;
+import com.security.auth_service.repository.UsuarioRepository;
+import com.security.auth_service.service.AuthService;
+import com.security.auth_service.service.EmailService;
+import com.security.auth_service.service.JwtRefreshService;
+import com.security.auth_service.service.JwtService;
+import com.security.auth_service.service.PasswordManagementService;
+import com.security.auth_service.service.TokenBlacklistService;
+import com.security.auth_service.service.TotpService;
+import com.security.auth_service.utils.OtpGenerator;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -47,8 +49,9 @@ public class AuthServiceimpl implements AuthService {
     private final OtpGenerator otpGenerator;
     private final PasswordManagementService passwordManagementService;
     private final TotpService totpService;
+    private final JwtRefreshService jwtRefreshService;
 
-    @Transactional
+    @Override
     public AuthResponse register(RegisterRequest request) {
         usuarioRepository.findByCorreo(request.getCorreo())
                 .ifPresent(usuario -> 
@@ -141,6 +144,7 @@ public class AuthServiceimpl implements AuthService {
             throw new RuntimeException("Código OTP o TOTP incorrecto/expirado");
         }
 
+        // user está asignado aquí
         user.setUltimoAcceso(LocalDateTime.now());
         usuarioRepository.save(user);
 
@@ -191,21 +195,21 @@ public class AuthServiceimpl implements AuthService {
         UsuarioEntity usuarioActual = usuarioRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
         
-        int fallidos = (usuarioActual.getIntentosFallidos() == null ? 0 : usuarioActual.getIntentosFallidos()) + 1;
+        int fallidos = java.util.Objects.requireNonNullElse(usuarioActual.getIntentosFallidos(), 0) + 1;
         usuarioActual.setIntentosFallidos(fallidos);
         
-        System.out.println("📊 Estado ANTES: intentos_fallidos = " + (usuarioActual.getIntentosFallidos() - 1) + 
+        System.out.println("Estado ANTES: intentos_fallidos = " + (usuarioActual.getIntentosFallidos() - 1) + 
                           " | cuenta_bloqueada = " + usuarioActual.getCuentaBloqueada());
         
         if (fallidos >= 5) {
             usuarioActual.setCuentaBloqueada(true);
-            System.out.println("⚠️ CUENTA BLOQUEADA: " + usuarioActual.getCorreo() + " después de " + fallidos + " intentos");
+            System.out.println("CUENTA BLOQUEADA: " + usuarioActual.getCorreo() + " después de " + fallidos + " intentos");
         } else {
-            System.out.println("❌ Intento fallido #" + fallidos + " para: " + usuarioActual.getCorreo());
+            System.out.println("Intento fallido #" + fallidos + " para: " + usuarioActual.getCorreo());
         }
         
         UsuarioEntity guardado = usuarioRepository.saveAndFlush(usuarioActual);
-        System.out.println("✅ GUARDADO en BD: intentos_fallidos = " + guardado.getIntentosFallidos() + 
+        System.out.println("GUARDADO en BD: intentos_fallidos = " + guardado.getIntentosFallidos() + 
                           " | cuenta_bloqueada = " + guardado.getCuentaBloqueada());
     }
 
@@ -221,7 +225,7 @@ public class AuthServiceimpl implements AuthService {
         usuarioActual.setCuentaBloqueada(false);
         usuarioRepository.saveAndFlush(usuarioActual);
         
-        System.out.println("🔄 Intentos reseteados para: " + usuarioActual.getCorreo());
+        System.out.println("Intentos reseteados para: " + usuarioActual.getCorreo());
     }
     
     private UsuarioEntity validarEstadoUsuario(UsuarioEntity usuario) {     
@@ -240,10 +244,12 @@ public class AuthServiceimpl implements AuthService {
 
     private AuthResponse buildAuthResponse(UsuarioEntity usuario, String mensaje) {
         String token = jwtService.generateToken(usuario.getCorreo());
+        String refreshToken = jwtRefreshService.generateRefreshToken(usuario);
         return AuthResponse.builder()
                 .userId(usuario.getId())
                 .correo(usuario.getCorreo())
-                .token(token)
+                .accessToken(token)
+                .refreshToken(refreshToken)
                 .mensaje(mensaje)
                 .build();
     }
@@ -259,6 +265,7 @@ public class AuthServiceimpl implements AuthService {
         return buildAuthResponse(usuario, "Cuenta bloqueada exitosamente");
     }
 
+    @Override
     public AuthResponse unblock(String correo) {
         UsuarioEntity usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
@@ -269,6 +276,7 @@ public class AuthServiceimpl implements AuthService {
         return buildAuthResponse(usuario, "Cuenta desbloqueada exitosamente");
     }
 
+    @Override
     @Transactional
     public AuthResponse updateCredentials(AtualizarCredencialesRequest request) {
         UsuarioEntity usuario = usuarioRepository.findById(request.getId())
@@ -297,6 +305,7 @@ public class AuthServiceimpl implements AuthService {
         return buildAuthResponse(usuario, "Credenciales actualizadas exitosamente");
     }
 
+    @Override
     @Transactional
     public AuthResponse logout(LogoutRequest request) {
         // Agregar el token a la blacklist
@@ -308,6 +317,7 @@ public class AuthServiceimpl implements AuthService {
                 .build();
     }
 
+    @Override
     @Transactional
     public AuthResponse deleteAccount(EliminarCuentaRequest request) {
         UsuarioEntity usuario = usuarioRepository.findById(request.getId())

@@ -1,19 +1,24 @@
 package com.security.auth_service.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender javaMailSender;
 
+    @Async
     public void sendOtpEmail(String to, String otp) {
+        log.info("Iniciando envío de OTP al correo: {}", to);
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -31,13 +36,17 @@ public class EmailService {
             
             helper.setText(htmlMsg, true);
             javaMailSender.send(message);
+            log.info("OTP enviado exitosamente a: {}", to);
             
         } catch (MessagingException e) {
+            log.error("Error al enviar el correo de MFA a {}: {}", to, e.getMessage());
             throw new RuntimeException("Error al enviar el correo de MFA: " + e.getMessage());
         }
     }
 
+    @Async
     public void sendPasswordResetEmail(String to, String resetLink) {
+        log.info("Iniciando envío de correo de restablecimiento a: {}", to);
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -56,8 +65,10 @@ public class EmailService {
             
             helper.setText(htmlMsg, true);
             javaMailSender.send(message);
+            log.info("Correo de restablecimiento enviado exitosamente a: {}", to);
             
         } catch (MessagingException e) {
+            log.error("Error al enviar el correo de recuperación a {}: {}", to, e.getMessage());
             throw new RuntimeException("Error al enviar el correo de recuperación: " + e.getMessage());
         }
     }
