@@ -9,44 +9,41 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
-@Table(name = "password_reset_tokens", schema = "seguridad_ms")
-@Getter
-@Setter
+@Table(name = "refresh_tokens", schema = "seguridad_ms")
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class PasswordResetTokenEntity {
-
+public class JwtRefreshEntity {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
-    @JoinColumn(name = "usuario_id", nullable = false)
+    @OneToOne
+    @JoinColumn(name = "usuario_id", referencedColumnName = "id")
     private UsuarioEntity usuario;
 
-    @Column(name = "token", nullable = false, unique = true, length = 500)
+    @Column(name = "token", nullable = false, unique = true)
     private String token;
 
-    @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
     @Column(name = "fecha_expiracion", nullable = false)
     private LocalDateTime fechaExpiracion;
 
-    @Column(name = "estirado", columnDefinition = "boolean default false")
-    @Builder.Default
-    private Boolean estirado = false;
+    @Column(name = "revocado", columnDefinition = "boolean default false")
+    private Boolean revocado;
 
     @PrePersist
     protected void onCreate() {
@@ -54,8 +51,11 @@ public class PasswordResetTokenEntity {
             fechaCreacion = LocalDateTime.now();
         }
         if (fechaExpiracion == null) {
-            // Token válido por 15 minutos
-            fechaExpiracion = LocalDateTime.now().plusMinutes(15);
+            // Token válido por 7 días
+            fechaExpiracion = LocalDateTime.now().plusDays(7);
+        }
+        if (revocado == null) {
+            revocado = false;
         }
     }
 }

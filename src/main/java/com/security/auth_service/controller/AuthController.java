@@ -1,22 +1,32 @@
 package com.security.auth_service.controller;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.security.auth_service.dto.AtualizarCredencialesRequest;
 import com.security.auth_service.dto.AuthResponse;
 import com.security.auth_service.dto.EliminarCuentaRequest;
+import com.security.auth_service.dto.EnableTotpRequest;
 import com.security.auth_service.dto.ForgotPasswordRequest;
 import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.LogoutRequest;
+import com.security.auth_service.dto.MfaSetupResponse;
+import com.security.auth_service.dto.RefreshTokenRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.dto.ResetPasswordRequest;
 import com.security.auth_service.dto.ValidateResetTokenRequest;
 import com.security.auth_service.dto.VerifyMfaRequest;
-import com.security.auth_service.dto.MfaSetupResponse;
-import com.security.auth_service.dto.EnableTotpRequest;
 import com.security.auth_service.service.AuthService;
+import com.security.auth_service.service.JwtRefreshService;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtRefreshService jwtRefreshService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
@@ -48,6 +59,11 @@ public class AuthController {
     @PostMapping("/mfa/enable-totp")
     public ResponseEntity<AuthResponse> enableTotp(@RequestBody EnableTotpRequest request) {
         return ResponseEntity.ok(authService.enableTotp(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(jwtRefreshService.refreshAccessToken(request.getRefreshToken()));
     }
 
     @PostMapping("/logout")

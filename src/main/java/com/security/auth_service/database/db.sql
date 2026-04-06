@@ -118,6 +118,24 @@ CREATE INDEX idx_password_reset_expiracion
   ON seguridad_ms.password_reset_tokens(fecha_expiracion);
 
 
+create extension if not exists pgcrypto;
+
+create table seguridad_ms.refresh_tokens (
+    id uuid primary key default gen_random_uuid(),
+    usuario_id uuid not null,
+    token text not null unique,
+    fecha_creacion timestamptz not null default now(),
+    fecha_expiracion timestamptz not null,
+    revocado boolean not null default false,
+    constraint fk_refresh_token_usuario
+        foreign key (usuario_id)
+        references seguridad_ms.usuarios(id)
+        on delete cascade
+);
+
+create index idx_refresh_tokens_usuario_id
+    on seguridad_ms.refresh_tokens(usuario_id);
+
 COMMENT ON SCHEMA seguridad_ms IS 'Microservicio encargado de autenticación, autorización y control de acceso de usuarios para diferentes aplicaciones';
 
 -- TABLA: aplicaciones
@@ -207,3 +225,11 @@ COMMENT ON INDEX idx_password_history_fecha_cambio IS 'Índice para ordenar hist
 COMMENT ON INDEX idx_password_reset_token IS 'Índice para búsqueda rápida de token de recuperación';
 COMMENT ON INDEX idx_password_reset_usuario_id IS 'Índice para listar tokens de recuperación por usuario';
 COMMENT ON INDEX idx_password_reset_expiracion IS 'Índice para limpieza de tokens expirados y búsquedas por caducidad';
+
+COMMENT ON TABLE seguridad_ms.refresh_tokens IS 'Refresh tokens emitidos para renovar access tokens sin solicitar nuevamente las credenciales del usuario';
+COMMENT ON COLUMN seguridad_ms.refresh_tokens.usuario_id IS 'Identificador del usuario propietario del refresh token';
+COMMENT ON COLUMN seguridad_ms.refresh_tokens.token IS 'Valor del refresh token emitido al cliente';
+COMMENT ON COLUMN seguridad_ms.refresh_tokens.fecha_creacion IS 'Fecha y hora en que se emitio el refresh token';
+COMMENT ON COLUMN seguridad_ms.refresh_tokens.fecha_expiracion IS 'Fecha y hora limite de validez del refresh token';
+COMMENT ON COLUMN seguridad_ms.refresh_tokens.revocado IS 'Indica si el refresh token fue invalidado y ya no puede usarse para renovar access tokens';
+COMMENT ON INDEX seguridad_ms.idx_refresh_tokens_usuario_id IS 'Índice para listar refresh tokens por usuario y permitir revocación masiva';

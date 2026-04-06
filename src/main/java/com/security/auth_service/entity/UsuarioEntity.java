@@ -1,12 +1,28 @@
 package com.security.auth_service.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "usuarios", schema = "seguridad_ms")
@@ -49,9 +65,11 @@ public class UsuarioEntity {
     private LocalDateTime passwordExpiradoEn;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<PasswordHistoryEntity> passwordHistory = new HashSet<>();
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<PasswordResetTokenEntity> resetTokens = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
