@@ -8,6 +8,7 @@ import com.security.auth_service.dto.LoginRequest;
 import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.dto.ResetPasswordRequest;
+import com.security.auth_service.dto.UserDTO;
 import com.security.auth_service.dto.ValidateResetTokenRequest;
 
 public interface AuthService {
@@ -25,7 +26,6 @@ public interface AuthService {
 
     AuthResponse updateCredentials(AtualizarCredencialesRequest request);
 
-    AuthResponse deleteAccount(EliminarCuentaRequest request);
 
     AuthResponse logout(LogoutRequest request);
 
@@ -36,4 +36,6 @@ public interface AuthService {
     AuthResponse validateResetToken(ValidateResetTokenRequest request);
 
     AuthResponse resetPassword(ResetPasswordRequest request);
+
+    UserDTO getProfile();
 }

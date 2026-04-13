@@ -5,11 +5,17 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.util.Date;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.security.auth_service.dto.AuthResponse;
+import com.security.auth_service.entity.UsuarioEntity;
 import com.security.auth_service.service.JwtService;
 
 import io.jsonwebtoken.Jwts;
@@ -32,10 +38,18 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public String generateToken(String username) {
+    public String generateToken(UsuarioEntity usuario) {
+        List<String> userRoles = usuario.getRoles().stream()
+                .map(rol -> rol.getNombreRol().startsWith("ROLE_") ? rol.getNombreRol() : "ROLE_" + rol.getNombreRol())
+                .collect(Collectors.toList());
+
+        if (userRoles.isEmpty()) {
+            userRoles.add("ROLE_USER");
+        }
+
         return Jwts.builder()
-                .setSubject(username)
-                .claim("authorities", List.of("ROLE_USER"))
+                .setSubject(usuario.getCorreo())
+                .claim("authorities", userRoles)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

@@ -1,32 +1,21 @@
 package com.security.auth_service.entity;
 
+import jakarta.persistence.*;
+import lombok.*;
 import java.time.LocalDateTime;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import jakarta.persistence.ManyToOne; 
+import java.util.UUID;
 
 @Entity
 @Table(name = "auditoria", schema = "seguridad_ms")
-@Data
-@Builder
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class AuditoriaEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -37,7 +26,7 @@ public class AuditoriaEntity {
     @JoinColumn(name = "aplicacion_id")
     private AplicacionEntity aplicacion;
 
-    @Column(name = "accion")
+    @Column(nullable = false)
     private String accion;
 
     @Column(name = "tabla_afectada")
@@ -46,12 +35,19 @@ public class AuditoriaEntity {
     @Column(name = "dato_id")
     private String datoId;
 
-    @Column(name = "valor_anterior")
+    @Column(name = "valor_anterior", columnDefinition = "jsonb")
     private String valorAnterior;
 
-    @Column(name = "valor_nuevo")
+    @Column(name = "valor_nuevo", columnDefinition = "jsonb")
     private String valorNuevo;
 
-    @Column(name = "fecha_accion")
+    @Column(name = "fecha_accion", updatable = false)
     private LocalDateTime fechaAccion;
+
+    @PrePersist
+    protected void onCreate() {
+        if (fechaAccion == null) {
+            fechaAccion = LocalDateTime.now();
+        }
+    }
 }

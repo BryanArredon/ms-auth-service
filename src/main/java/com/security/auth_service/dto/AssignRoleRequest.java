@@ -4,8 +4,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class RegisterRequest {
+public class AssignRoleRequest {
     private String correo;
-    private String password;
     private List<String> roles;
 }

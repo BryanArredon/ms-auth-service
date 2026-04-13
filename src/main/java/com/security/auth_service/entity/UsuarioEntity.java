@@ -64,6 +64,18 @@ public class UsuarioEntity {
     @Column(name = "password_expirado_en")
     private LocalDateTime passwordExpiradoEn;
 
+    @Column(name = "nombre")
+    private String nombre;
+
+    @Column(name = "apellidos")
+    private String apellidos;
+
+    @Column(name = "numero_empleado")
+    private String numeroEmpleado;
+
+    @Column(name = "especialidad")
+    private String especialidad;
+
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<PasswordHistoryEntity> passwordHistory = new HashSet<>();

@@ -86,10 +86,6 @@ public class AuthController {
         return ResponseEntity.ok(authService.updateCredentials(request));
     }
 
-    @DeleteMapping("/eliminar-cuenta")
-    public ResponseEntity<AuthResponse> deleteAccount(@RequestBody EliminarCuentaRequest request) {
-        return ResponseEntity.ok(authService.deleteAccount(request));
-    }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<AuthResponse> forgotPassword(@RequestBody ForgotPasswordRequest request) {

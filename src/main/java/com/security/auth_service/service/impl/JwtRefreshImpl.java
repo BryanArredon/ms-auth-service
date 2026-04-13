@@ -102,19 +102,18 @@ public class JwtRefreshImpl implements JwtRefreshService {
             throw new RuntimeException("Invalid or expired refresh token");
         }
 
-        String username = getUsernameFromRefreshToken(refreshToken);
-        if (username == null) {
-            throw new RuntimeException("User not found for refresh token");
-        }
+        UsuarioEntity usuario = jwtRefreshRepository.findByToken(refreshToken)
+                .map(JwtRefreshEntity::getUsuario)
+                .orElseThrow(() -> new RuntimeException("User not found for refresh token"));
 
         // Generate new access token
-        String newAccessToken = jwtService.generateToken(username);
+        String newAccessToken = jwtService.generateToken(usuario);
 
         // Optionally rotate refresh token for security
         String newRefreshToken = rotateRefreshToken(refreshToken);
 
         return AuthResponse.builder()
-                .correo(username)
+                .correo(usuario.getCorreo())
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .mensaje("Tokens refreshed successfully")
