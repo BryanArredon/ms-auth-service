@@ -5,14 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VerifyMfaRequest {
-    private UUID tempUserId;
-    private String otp;
-    private UUID aplicacionId;
+public class ModuloDTO {
+    private String nombre;
+    private String ruta;
+    private String icono;
+    private Integer orden;
 }

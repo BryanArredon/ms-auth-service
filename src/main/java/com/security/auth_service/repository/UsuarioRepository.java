@@ -10,6 +10,5 @@ import java.util.UUID;
 @Repository
 public interface UsuarioRepository extends JpaRepository<UsuarioEntity, UUID> {
     Optional<UsuarioEntity> findByCorreo(String correo);
-    Optional<UsuarioEntity> findById(Long id);
     Optional<UsuarioEntity> findByCorreoAndCuentaBloqueadaFalse(String correo);
 }

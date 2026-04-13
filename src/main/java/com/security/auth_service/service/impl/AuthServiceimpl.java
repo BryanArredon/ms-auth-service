@@ -3,6 +3,8 @@ package com.security.auth_service.service.impl;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -18,13 +20,20 @@ import com.security.auth_service.dto.LogoutRequest;
 import com.security.auth_service.dto.MfaSetupResponse;
 import com.security.auth_service.dto.RegisterRequest;
 import com.security.auth_service.dto.ResetPasswordRequest;
+import com.security.auth_service.dto.UserDTO;
 import com.security.auth_service.dto.ValidateResetTokenRequest;
 import com.security.auth_service.dto.VerifyMfaRequest;
 import com.security.auth_service.entity.MfaOtpeEntity;
 import com.security.auth_service.entity.PasswordResetTokenEntity;
 import com.security.auth_service.entity.UsuarioEntity;
 import com.security.auth_service.repository.MfaOtpeRepository;
+import com.security.auth_service.repository.RolRepository;
 import com.security.auth_service.repository.UsuarioRepository;
+import com.security.auth_service.entity.RolEntity;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.security.auth_service.service.AuthService;
 import com.security.auth_service.service.EmailService;
 import com.security.auth_service.service.JwtRefreshService;
@@ -32,6 +41,10 @@ import com.security.auth_service.service.JwtService;
 import com.security.auth_service.service.PasswordManagementService;
 import com.security.auth_service.service.TokenBlacklistService;
 import com.security.auth_service.service.TotpService;
+import com.security.auth_service.entity.AplicacionEntity;
+import com.security.auth_service.service.SessionHistoryService;
+import com.security.auth_service.service.AuditoriaService;
+import jakarta.servlet.http.HttpServletRequest;
 import com.security.auth_service.utils.OtpGenerator;
 
 import lombok.RequiredArgsConstructor;
@@ -50,6 +63,10 @@ public class AuthServiceimpl implements AuthService {
     private final PasswordManagementService passwordManagementService;
     private final TotpService totpService;
     private final JwtRefreshService jwtRefreshService;
+    private final RolRepository rolRepository;
+    private final SessionHistoryService sessionHistoryService;
+    private final AuditoriaService auditoriaService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -61,6 +78,20 @@ public class AuthServiceimpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
         
+        Set<RolEntity> roles = new HashSet<>();
+        List<String> rolesReclamados = request.getRoles();
+        if (rolesReclamados == null || rolesReclamados.isEmpty()) {
+            rolRepository.findByNombreRol("USER").ifPresent(roles::add);
+        } else {
+            for (String rn : rolesReclamados) {
+                // Quitamos el prefijo si lo envían (ej. ROLE_ENFERMERA -> ENFERMERA) para buscar en BD o buscar directo.
+                String roleName = rn.replaceFirst("^ROLE_", "");
+                rolRepository.findByNombreRol(roleName).ifPresent(roles::add);
+            }
+        }
+        
+        nuevoUsuario.setRoles(roles);
+
         // Establecer expiración de contraseña (90 días desde creación)
         passwordManagementService.setPasswordExpiry(nuevoUsuario);
         
@@ -148,6 +179,18 @@ public class AuthServiceimpl implements AuthService {
         user.setUltimoAcceso(LocalDateTime.now());
         usuarioRepository.save(user);
 
+        // Registrar historial de sesión (en transacción independiente para no fallar el login)
+        try {
+            sessionHistoryService.registrarSesion(
+                user, 
+                request.getAplicacionId(), 
+                httpServletRequest.getRemoteAddr(), 
+                httpServletRequest.getHeader("User-Agent")
+            );
+        } catch (Exception e) {
+            System.err.println("Error no crítico en el registro de sesión: " + e.getMessage());
+        }
+
         return buildAuthResponse(user, "Login exitoso");
     }
 
@@ -156,6 +199,10 @@ public class AuthServiceimpl implements AuthService {
     public MfaSetupResponse setupTotp(String correo) {
         UsuarioEntity user = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                
+        if (Boolean.TRUE.equals(user.getGoogleAuthActivo())) {
+            throw new RuntimeException("Google Authenticator ya está configurado para este usuario.");
+        }
                 
         String secret = totpService.generateSecret();
         user.setGoogleAuthSecret(secret);
@@ -243,7 +290,7 @@ public class AuthServiceimpl implements AuthService {
     }
 
     private AuthResponse buildAuthResponse(UsuarioEntity usuario, String mensaje) {
-        String token = jwtService.generateToken(usuario.getCorreo());
+        String token = jwtService.generateToken(usuario);
         String refreshToken = jwtRefreshService.generateRefreshToken(usuario);
         return AuthResponse.builder()
                 .userId(usuario.getId())
@@ -262,6 +309,8 @@ public class AuthServiceimpl implements AuthService {
         usuario.setCuentaBloqueada(true);
         usuarioRepository.save(usuario);
         
+        auditoriaService.registrarAccion("BLOCK_ACCOUNT", "usuarios", usuario.getId().toString(), null, "Account blocked");
+        
         return buildAuthResponse(usuario, "Cuenta bloqueada exitosamente");
     }
 
@@ -272,6 +321,8 @@ public class AuthServiceimpl implements AuthService {
         
         usuario.setCuentaBloqueada(false);
         usuarioRepository.save(usuario);
+        
+        auditoriaService.registrarAccion("UNBLOCK_ACCOUNT", "usuarios", usuario.getId().toString(), null, "Account unblocked");
         
         return buildAuthResponse(usuario, "Cuenta desbloqueada exitosamente");
     }
@@ -302,6 +353,8 @@ public class AuthServiceimpl implements AuthService {
 
         usuarioRepository.save(usuario);
         
+        auditoriaService.registrarAccion("UPDATE_CREDENTIALS", "usuarios", usuario.getId().toString(), null, "Credentials updated");
+        
         return buildAuthResponse(usuario, "Credenciales actualizadas exitosamente");
     }
 
@@ -317,20 +370,6 @@ public class AuthServiceimpl implements AuthService {
                 .build();
     }
 
-    @Override
-    @Transactional
-    public AuthResponse deleteAccount(EliminarCuentaRequest request) {
-        UsuarioEntity usuario = usuarioRepository.findById(request.getId())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        
-        if (!usuario.getCorreo().equals(request.getCorreo())) {
-            throw new RuntimeException("El correo no coincide con el usuario");
-        }
-        
-        usuarioRepository.delete(usuario);
-        
-        return buildAuthResponse(usuario, "Cuenta eliminada exitosamente");
-    }
 
     @Override
     @Transactional
@@ -399,12 +438,32 @@ public class AuthServiceimpl implements AuthService {
 
         usuarioRepository.save(usuario);
 
+        auditoriaService.registrarAccion("RESET_PASSWORD", "usuarios", usuario.getId().toString(), null, "Password reset via token");
+
         // Marcar token como usado
         passwordManagementService.invalidateResetToken(resetToken);
 
         return AuthResponse.builder()
                 .correo(usuario.getCorreo())
                 .mensaje("Contraseña actualizada exitosamente. Por favor inicia sesión.")
+                .build();
+    }
+
+    @Override
+    public UserDTO getProfile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String correo = auth.getName();
+
+        UsuarioEntity user = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        return UserDTO.builder()
+                .correo(user.getCorreo())
+                .nombre(user.getNombre())
+                .apellidos(user.getApellidos())
+                .numeroEmpleado(user.getNumeroEmpleado())
+                .especialidad(user.getEspecialidad())
+                .roles(user.getRoles().stream().map(RolEntity::getNombreRol).collect(Collectors.toSet()))
                 .build();
     }
 }
